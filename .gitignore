@@ -1,0 +1,57 @@
+# =========================
+# Eclipse / Spring Tools workspace
+# =========================
+.metadata/
+
+# =========================
+# Maven build
+# =========================
+**/target/
+
+# =========================
+# Eclipse / STS project files
+# =========================
+**/.apt_generated/
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings/
+**/.springBeans
+**/.sts4-cache/
+
+# =========================
+# IntelliJ IDEA
+# =========================
+**/.idea/
+**/*.iws
+**/*.iml
+**/*.ipr
+
+# =========================
+# VS Code
+# =========================
+**/.vscode/
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Environment / secrets
+# =========================
+**/.env
+**/.env.*
+!**/.env.example
+
+**/application-local.properties
+**/application-secret.properties
+
+# =========================
+# Operating system
+# =========================
+.DS_Store
+Thumbs.db
+
+# Postman local data
+.postman/
