@@ -1,3 +1,6 @@
+MSV : 4651050214
+FULL NAME : Nguyễn Minh Quân
+Class : CNPM 46E
 # SOA Practicals
 
 Repository lưu các bài thực hành môn Kiến trúc hướng dịch vụ.
