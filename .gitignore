@@ -54,4 +54,5 @@
 Thumbs.db
 
 # Postman local data
+postman/
 .postman/

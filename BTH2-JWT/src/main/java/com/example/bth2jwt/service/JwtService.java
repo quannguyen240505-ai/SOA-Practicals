@@ -1,3 +1,4 @@
+
 package com.example.bth2jwt.service;
 
 import java.nio.charset.StandardCharsets;
@@ -5,6 +6,7 @@ import java.util.Date;
 
 import javax.crypto.SecretKey;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import io.jsonwebtoken.JwtException;
@@ -14,15 +16,18 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY =
-            "BTH2-JWT-SECRET-KEY-12345678901234567890";
+    private final String secretKey;
 
     private static final long EXPIRATION_TIME =
-            60 * 60 * 1000; // 1 giờ
+            60 * 60 * 1000; // 1 gio
+
+    public JwtService(@Value("${app.jwt.secret}") String secretKey) {
+        this.secretKey = secretKey;
+    }
 
     private SecretKey getKey() {
         return Keys.hmacShaKeyFor(
-                SECRET_KEY.getBytes(StandardCharsets.UTF_8)
+                secretKey.getBytes(StandardCharsets.UTF_8)
         );
     }
 
