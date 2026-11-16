@@ -53,6 +53,15 @@
 .DS_Store
 Thumbs.db
 
-# Postman local data
-postman/
+# =========================
+# Postman
+# =========================
+
+# Ignore Postman local workspace data
 .postman/
+postman/globals/
+
+# Allow Postman collections and environments
+!postman/
+!postman/*.postman_collection.json
+!postman/*.postman_environment.json
