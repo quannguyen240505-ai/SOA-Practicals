@@ -9,6 +9,9 @@ BEGIN
         name VARCHAR(255) NOT NULL,
         description VARCHAR(MAX) NULL,
         price DECIMAL(10,2) NOT NULL CHECK(price >= 0),
+        cost_price DECIMAL(10,2) NULL
+        CONSTRAINT CK_products_cost_price
+        CHECK (cost_price >= 0),
         quantity INT NOT NULL CHECK(quantity >= 0),
         created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
