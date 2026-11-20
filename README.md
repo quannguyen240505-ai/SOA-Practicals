@@ -1,17 +1,19 @@
+
 # SOA Practicals
 
 Repository lưu trữ các bài thực hành môn **Kiến trúc hướng dịch vụ (Service-Oriented Architecture – SOA)**.
 
-Hệ thống được xây dựng bằng Java Spring Boot, bao gồm các dịch vụ xác thực người dùng, quản lý sản phẩm và quản lý đơn hàng. Mỗi dịch vụ hoạt động độc lập trên một cổng và sử dụng cơ sở dữ liệu riêng.
+Hệ thống được xây dựng bằng **Java Spring Boot, SQL Server, RESTful API và JWT**, gồm các dịch vụ quản lý xác thực, sản phẩm, đơn hàng và báo cáo. Các dịch vụ hoạt động độc lập trên các cổng riêng và sử dụng cơ sở dữ liệu riêng theo nguyên tắc SOA.
 
 ## 1. Danh sách bài thực hành
 
 | Bài | Nội dung | Thư mục |
 |---|---|---|
 | BTH1 | Làm quen với Spring Boot | `BTH1/` |
-| BTH2 | Middleware và xác thực JWT trong RESTful API | `BTH2-JWT/` |
-| BTH3 | Xây dựng dịch vụ quản lý sản phẩm (Product Management) | `ProductManagement/` |
-| BTH4 | Xây dựng dịch vụ quản lý đơn hàng (Order Management) | `OrderManagement/` |
+| BTH2 | Middleware và xác thực JWT | `BTH2-JWT/` |
+| BTH3 | Product Management – Quản lý sản phẩm, giá vốn và tồn kho | `ProductManagement/` |
+| BTH4 | Order Management – Quản lý đơn hàng, chi tiết đơn hàng và cập nhật tồn kho | `OrderManagement/` |
+| BTH5 | Reporting Service – Thống kê tồn kho, hàng bán, doanh thu, chi phí và lợi nhuận | `ReportingService/` |
 
 ## 2. Công nghệ sử dụng
 
@@ -20,223 +22,236 @@ Hệ thống được xây dựng bằng Java Spring Boot, bao gồm các dịch
 - Spring Web MVC
 - Spring Security và JWT
 - Spring Data JPA / Hibernate
-- Microsoft SQL Server
+- JDBC / SQL Server
 - Maven
+- RESTful API
 - Postman
 - Spring Tool Suite (STS) / Eclipse
 - Git và GitHub
 
-## 3. Kiến trúc hệ thống
+## 3. Kiến trúc hệ thống SOA
 
-Hệ thống gồm ba dịch vụ chính, triển khai theo kiến trúc hướng dịch vụ (SOA).
+Hệ thống gồm 4 dịch vụ chính:
 
-| Service | Cổng | Database | Chức năng |
+| Service | Port | Database | Chức năng |
 |---|---|---|---|
-| Authentication Service | 8080 | `BTH2_JWT` | Đăng nhập và cấp JWT |
-| Product Management Service | 8081 | `ProductDB` | Quản lý sản phẩm và tồn kho |
-| Order Management Service | 8082 | `OrderDB` | Quản lý đơn hàng và chi tiết đơn hàng |
+| Authentication Service | 8080 | `BTH2_JWT` | Đăng nhập, xác thực và cấp JWT |
+| Product Management Service | 8081 | `ProductDB` | Quản lý sản phẩm, giá bán, giá vốn và tồn kho |
+| Order Management Service | 8082 | `OrderDB` | Quản lý đơn hàng và đồng bộ tồn kho qua Product Service |
+| Reporting Service | 8083 | `ReportDB` | Báo cáo hàng bán, tồn kho, doanh thu, chi phí và lợi nhuận |
 
-### 3.1. Authentication Service (BTH2)
+### 3.1. Nguyên tắc hoạt động
 
-- Xử lý đăng nhập người dùng.
-- Kiểm tra tài khoản và mật khẩu.
-- Cấp JWT sau khi đăng nhập thành công.
-- Cung cấp cơ chế xác thực cho các API cần bảo vệ.
+- Mỗi service chạy trên một cổng riêng.
+- Mỗi service quản lý database độc lập.
+- Các service giao tiếp thông qua REST API.
+- Không truy cập trực tiếp database của service khác.
+- Các API được bảo vệ bằng JWT.
+- Order Service gọi Product Service để kiểm tra và cập nhật tồn kho.
+- Reporting Service gọi Product Service và Order Service để tổng hợp dữ liệu.
 
-### 3.2. Product Management Service (BTH3)
+### 3.2. Luồng hoạt động tổng quát
 
-- Thêm, xem, sửa và xóa sản phẩm.
-- Quản lý thông tin sản phẩm, giá và số lượng tồn kho.
-- Cung cấp REST API để Order Service truy vấn thông tin sản phẩm.
-- Xác thực JWT do Authentication Service cấp.
+1. Người dùng đăng nhập qua Authentication Service.
+2. Authentication Service xác thực và trả JWT.
+3. Client sử dụng JWT để truy cập các API.
+4. Product Service cung cấp thông tin sản phẩm, giá và tồn kho.
+5. Order Service tạo đơn hàng, gọi Product Service để trừ hoặc hoàn kho.
+6. Reporting Service lấy dữ liệu từ Product Service và Order Service để lập báo cáo.
 
-### 3.3. Order Management Service (BTH4)
+## 4. Authentication Service – BTH2
 
-- Tạo đơn hàng mới.
-- Lấy danh sách và thông tin chi tiết đơn hàng.
-- Cập nhật trạng thái đơn hàng.
-- Xóa đơn hàng.
-- Thêm, xem, cập nhật và xóa chi tiết đơn hàng.
-- Kiểm tra số lượng tồn kho thông qua Product Service.
-- Tính tổng tiền đơn hàng dựa trên số lượng và đơn giá sản phẩm.
-- Xác thực JWT do Authentication Service cấp.
-- Lưu trữ dữ liệu độc lập trong database `OrderDB`.
+**Base URL:** `http://localhost:8080`
 
-**Luồng xử lý tạo đơn hàng:**
+### Chức năng
 
-1. Client gửi yêu cầu tạo đơn hàng kèm JWT.
-2. Order Service xác thực JWT.
-3. Order Service gọi Product Service để lấy thông tin sản phẩm và kiểm tra tồn kho.
-4. Nếu sản phẩm hợp lệ và đủ số lượng, Order Service tính tổng tiền.
-5. Lưu đơn hàng và các chi tiết đơn hàng vào `OrderDB`.
-6. Trả kết quả cho Client.
+- Đăng nhập người dùng.
+- Kiểm tra thông tin tài khoản.
+- Cấp JSON Web Token (JWT).
+- Xác thực JWT khi truy cập API.
 
-*Lưu ý: Phiên bản BTH4 thực hiện kiểm tra tồn kho, chưa triển khai cơ chế tự động trừ số lượng tồn kho khi tạo đơn hàng.*
-
-## 4. RESTful API
-
-### 4.1. Authentication API – BTH2
-
-Base URL: `http://localhost:8080`
+### Danh sách API
 
 | Method | Endpoint | Chức năng |
 |---|---|---|
-| POST | `/login` | Đăng nhập và lấy JWT |
-| GET | `/auth` | Kiểm tra xác thực |
-| GET | `/hello` | Kiểm tra API cơ bản |
+| POST | `/login` | Đăng nhập và nhận JWT |
+| GET | `/auth` | Kiểm tra JWT |
+| GET | `/hello` | API demo |
 
-### 4.2. Product Management API – BTH3
+Ví dụ đăng nhập:
 
-Base URL: `http://localhost:8081`
+```json
+{
+  "userName": "admin",
+  "password": "<base64_password>"
+}
+```
+
+Mật khẩu trong request được mã hóa Base64 theo yêu cầu của BTH2. Base64 không phải cơ chế mã hóa bảo mật mật khẩu.
+
+## 5. Product Management Service – BTH3
+
+**Base URL:** `http://localhost:8081`
+
+**Database:** `ProductDB`
+
+### 5.1. Chức năng
+
+- Thêm sản phẩm.
+- Xem danh sách và chi tiết sản phẩm.
+- Cập nhật sản phẩm.
+- Xóa sản phẩm.
+- Quản lý giá bán (`price`).
+- Quản lý giá vốn (`costPrice`).
+- Quản lý số lượng tồn kho (`quantity`).
+- Ghi lịch sử điều chỉnh tồn kho.
+
+### 5.2. Danh sách API
 
 | Method | Endpoint | Chức năng |
 |---|---|---|
 | GET | `/products` | Lấy danh sách sản phẩm |
-| GET | `/products/{id}` | Lấy thông tin sản phẩm |
+| GET | `/products/{id}` | Lấy chi tiết sản phẩm |
 | POST | `/products` | Tạo sản phẩm mới |
 | PUT | `/products/{id}` | Cập nhật sản phẩm |
 | DELETE | `/products/{id}` | Xóa sản phẩm |
+| POST | `/products/{id}/stock-adjustments` | Điều chỉnh tồn kho |
 
-### 4.3. Order Management API – BTH4
+### 5.3. Ví dụ tạo sản phẩm
 
-Base URL: `http://localhost:8082`
-
-**Orders**
-
-| Method | Endpoint | Chức năng |
-|---|---|---|
-| GET | `/orders` | Lấy danh sách đơn hàng |
-| GET | `/orders/{id}` | Lấy chi tiết đơn hàng |
-| POST | `/orders` | Tạo đơn hàng mới, kiểm tra tồn kho |
-| PUT | `/orders/{id}` | Cập nhật trạng thái đơn hàng |
-| DELETE | `/orders/{id}` | Xóa đơn hàng |
-
-**Order Items**
-
-| Method | Endpoint | Chức năng |
-|---|---|---|
-| GET | `/order_items` | Lấy danh sách chi tiết đơn hàng |
-| GET | `/order_items/{id}` | Lấy chi tiết một mặt hàng |
-| POST | `/order_items` | Thêm mặt hàng vào đơn hàng |
-| PUT | `/order_items/{id}` | Cập nhật mặt hàng |
-| DELETE | `/order_items/{id}` | Xóa mặt hàng khỏi đơn hàng |
-
-## 5. Thiết kế cơ sở dữ liệu BTH4
-
-Order Management Service sử dụng database `OrderDB`, gồm hai bảng chính.
-
-### 5.1. Bảng orders
-
-| Thuộc tính | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| id | INT | Khóa chính |
-| customer_name | VARCHAR(255) | Tên khách hàng |
-| customer_email | VARCHAR(255) | Email khách hàng |
-| total_amount | DECIMAL(10,2) | Tổng tiền đơn hàng |
-| status | VARCHAR(50) | Trạng thái đơn hàng |
-| created_at | DATETIME2 | Thời gian tạo |
-| updated_at | DATETIME2 | Thời gian cập nhật |
-
-Các trạng thái đơn hàng:
-
-- `pending`: Đang chờ xử lý.
-- `completed`: Đã hoàn thành.
-- `cancelled`: Đã hủy.
-
-### 5.2. Bảng order_items
-
-| Thuộc tính | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| id | INT | Khóa chính |
-| order_id | INT | Khóa ngoại liên kết bảng orders |
-| product_id | INT | ID sản phẩm từ Product Service |
-| product_name | VARCHAR(255) | Tên sản phẩm tại thời điểm đặt |
-| quantity | INT | Số lượng đặt |
-| unit_price | DECIMAL(10,2) | Đơn giá |
-| total_price | DECIMAL(10,2) | Thành tiền |
-
-Công thức tính:
-
-`total_price = quantity * unit_price`
-
-`total_amount = SUM(total_price)`
-
-File tạo database và bảng: `OrderManagement/database/OrderDB.sql`.
-
-## 6. Cấu hình và chạy ứng dụng
-
-### 6.1. Yêu cầu môi trường
-
-- JDK 21
-- Maven
-- Spring Tool Suite / Eclipse
-- Microsoft SQL Server
-- SQL Server Management Studio
-- Postman
-
-### 6.2. Chuẩn bị database
-
-Tạo ba database trên SQL Server:
-
-- `BTH2_JWT`
-- `ProductDB`
-- `OrderDB`
-
-Chạy các file SQL tương ứng để tạo bảng.
-
-### 6.3. Cấu hình biến môi trường
-
-Các service sử dụng biến môi trường để kết nối database và xác thực JWT.
-
-**Authentication Service:**
-
-Cấu hình kết nối database `BTH2_JWT` và `JWT_SECRET` theo file `BTH2-JWT/src/main/resources/application.properties`.
-
-**Product Management Service:**
-
-```properties
-PRODUCT_DB_USER=<sql_username>
-PRODUCT_DB_PASSWORD=<sql_password>
-PRODUCT_DB_URL=jdbc:sqlserver://localhost:1433;databaseName=ProductDB;encrypt=true;trustServerCertificate=true
-JWT_SECRET=<jwt_secret>
+```json
+{
+  "name": "Nuoc hoa",
+  "description": "San pham nuoc hoa",
+  "price": 1800000,
+  "costPrice": 140000,
+  "quantity": 20
+}
 ```
 
-**Order Management Service:**
+Ý nghĩa các trường:
 
-```properties
-ORDER_DB_USER=<sql_username>
-ORDER_DB_PASSWORD=<sql_password>
-ORDER_DB_URL=jdbc:sqlserver://localhost:1433;databaseName=OrderDB;encrypt=true;trustServerCertificate=true
-JWT_SECRET=<jwt_secret>
-```
+- `price`: Giá bán sản phẩm.
+- `costPrice`: Giá vốn của sản phẩm.
+- `quantity`: Số lượng tồn kho.
 
-Các service phải sử dụng cùng giá trị `JWT_SECRET` để xác thực JWT.
+Giá vốn được sử dụng bởi Reporting Service để tính chi phí và lợi nhuận.
 
-Không lưu mật khẩu hoặc JWT secret thực tế trong repository.
+### 5.4. Điều chỉnh tồn kho
 
-### 6.4. Khởi động service
-
-Trong Spring Tool Suite:
-
-1. Import các project bằng **Maven → Existing Maven Projects**.
-2. Cấu hình biến môi trường tại **Run Configurations → Environment**.
-3. Chạy Authentication Service trên cổng `8080`.
-4. Chạy Product Management Service trên cổng `8081`.
-5. Chạy Order Management Service trên cổng `8082`.
-
-Để kiểm thử luồng tạo đơn hàng, cần đảm bảo cả ba service đang hoạt động.
-
-## 7. Ví dụ tạo đơn hàng
-
-**Request**
+**Endpoint:**
 
 ```http
-POST http://localhost:8082/orders
-Authorization: Bearer <JWT_TOKEN>
-Content-Type: application/json
+POST /products/{id}/stock-adjustments
 ```
 
-**Body**
+Ví dụ trừ 2 sản phẩm:
+
+```json
+{
+  "quantityChange": -2,
+  "referenceCode": "TEST-STOCK-001"
+}
+```
+
+Ví dụ hoàn lại 2 sản phẩm:
+
+```json
+{
+  "quantityChange": 2,
+  "referenceCode": "TEST-STOCK-001-RESTORE"
+}
+```
+
+Quy tắc:
+
+- Số âm: giảm tồn kho.
+- Số dương: tăng tồn kho.
+- Không cho phép tồn kho âm.
+- Không thực hiện lại cùng một `referenceCode` cho một sản phẩm.
+- Ghi nhận lịch sử trong bảng `stock_movements`.
+
+### 5.5. Cấu trúc database
+
+**Bảng `products`**
+
+| Cột | Chức năng |
+|---|---|
+| id | Mã sản phẩm |
+| name | Tên sản phẩm |
+| description | Mô tả |
+| price | Giá bán |
+| cost_price | Giá vốn |
+| quantity | Số lượng tồn |
+| created_at | Ngày tạo |
+| updated_at | Ngày cập nhật |
+
+**Bảng `stock_movements`**
+
+| Cột | Chức năng |
+|---|---|
+| id | Mã lịch sử |
+| product_id | Mã sản phẩm |
+| quantity_change | Số lượng thay đổi |
+| reference_code | Mã tham chiếu |
+| created_at | Thời gian cập nhật |
+
+## 6. Order Management Service – BTH4
+
+**Base URL:** `http://localhost:8082`
+
+**Database:** `OrderDB`
+
+### 6.1. Chức năng
+
+- Tạo đơn hàng mới.
+- Xem danh sách và chi tiết đơn hàng.
+- Cập nhật trạng thái đơn hàng.
+- Xóa đơn hàng.
+- Thêm, xem, sửa và xóa chi tiết đơn hàng.
+- Kiểm tra số lượng sản phẩm thông qua BTH3.
+- Tự động trừ kho khi tạo đơn.
+- Hoàn kho khi hủy hoặc xóa đơn pending.
+- Điều chỉnh kho khi thay đổi chi tiết đơn hàng.
+- Tính tổng tiền đơn hàng.
+
+### 6.2. API Orders
+
+| Method | Endpoint | Chức năng |
+|---|---|---|
+| GET | `/orders` | Danh sách đơn hàng |
+| GET | `/orders/{id}` | Chi tiết đơn |
+| POST | `/orders` | Tạo đơn và trừ kho |
+| PUT | `/orders/{id}` | Cập nhật trạng thái |
+| DELETE | `/orders/{id}` | Xóa đơn pending và hoàn kho |
+
+### 6.3. API Order Items
+
+| Method | Endpoint | Chức năng |
+|---|---|---|
+| GET | `/order_items` | Danh sách mặt hàng |
+| GET | `/order_items/{id}` | Chi tiết mặt hàng |
+| POST | `/order_items` | Thêm mặt hàng và trừ kho |
+| PUT | `/order_items/{id}` | Cập nhật mặt hàng và điều chỉnh kho |
+| DELETE | `/order_items/{id}` | Xóa mặt hàng và hoàn kho |
+
+### 6.4. Trạng thái đơn hàng
+
+| Trạng thái | Ý nghĩa |
+|---|---|
+| `pending` | Đơn đang chờ xử lý |
+| `completed` | Đơn đã hoàn thành |
+| `cancelled` | Đơn đã hủy |
+
+Quy tắc xử lý:
+
+- Tạo đơn pending thành công: trừ kho.
+- Chuyển pending sang completed: không trừ kho thêm.
+- Chuyển pending sang cancelled: hoàn kho.
+- Xóa đơn pending: hoàn kho.
+- Không cho phép sửa chi tiết đơn đã completed hoặc cancelled.
+
+### 6.5. Ví dụ tạo đơn hàng
 
 ```json
 {
@@ -251,82 +266,352 @@ Content-Type: application/json
 }
 ```
 
-**Response mẫu – HTTP 201 Created**
+Khi tạo đơn thành công:
+
+1. Order Service kiểm tra sản phẩm.
+2. Product Service xác nhận đủ tồn kho.
+3. Order Service gọi API điều chỉnh kho.
+4. Product Service trừ số lượng và lưu lịch sử.
+5. Order Service lưu đơn hàng vào OrderDB.
+6. API trả HTTP `201 Created`.
+
+### 6.6. Công thức tính tổng tiền
+
+```text
+Thành tiền sản phẩm = Đơn giá × Số lượng
+
+Tổng tiền đơn hàng = Tổng thành tiền các mặt hàng
+```
+
+### 6.7. Xử lý lỗi nghiệp vụ
+
+- Đặt vượt số lượng tồn: `409 Conflict`.
+- Sản phẩm không tồn tại: lỗi nghiệp vụ.
+- Dữ liệu không hợp lệ: `400 Bad Request`.
+- Không có JWT hợp lệ: `401 Unauthorized`.
+- Sửa/xóa đơn đã completed: `409 Conflict`.
+- Truy cập tài nguyên không tồn tại: `404 Not Found`.
+
+## 7. Reporting Service – BTH5
+
+**Base URL:** `http://localhost:8083`
+
+**Database:** `ReportDB`
+
+### 7.1. Mục tiêu
+
+Xây dựng dịch vụ báo cáo độc lập, tuân theo nguyên tắc SOA.
+
+Dịch vụ hỗ trợ thống kê:
+
+- Số lượng hàng tồn.
+- Số lượng hàng bán.
+- Doanh thu.
+- Chi phí giá vốn.
+- Lợi nhuận gộp.
+- Báo cáo theo sản phẩm.
+- Báo cáo theo đơn hàng.
+
+### 7.2. Danh sách API báo cáo đơn hàng
+
+| Method | Endpoint | Chức năng |
+|---|---|---|
+| GET | `/reports/orders` | Danh sách báo cáo đơn hàng |
+| GET | `/reports/orders/{id}` | Chi tiết báo cáo đơn hàng |
+| POST | `/reports/orders` | Tạo báo cáo đơn hàng |
+| DELETE | `/reports/orders/{id}` | Xóa báo cáo đơn hàng |
+
+### 7.3. Danh sách API báo cáo sản phẩm
+
+| Method | Endpoint | Chức năng |
+|---|---|---|
+| GET | `/reports/products` | Danh sách báo cáo sản phẩm |
+| GET | `/reports/products/{id}` | Chi tiết báo cáo sản phẩm |
+| POST | `/reports/products` | Tạo báo cáo sản phẩm |
+| DELETE | `/reports/products/{id}` | Xóa báo cáo sản phẩm |
+
+### 7.4. Quy trình lập báo cáo
+
+1. Client gửi yêu cầu tạo báo cáo kèm JWT.
+2. Reporting Service kiểm tra đơn hàng qua Order Service.
+3. Chỉ chấp nhận đơn hàng có trạng thái `completed`.
+4. Lấy danh sách mặt hàng và số lượng đã bán.
+5. Gọi Product Service để lấy giá vốn và tồn kho.
+6. Tính doanh thu, chi phí và lợi nhuận.
+7. Lưu báo cáo vào ReportDB.
+8. Trả kết quả cho Client.
+
+### 7.5. Ví dụ tạo báo cáo đơn hàng
+
+**Endpoint:**
+
+```http
+POST /reports/orders
+```
+
+**Body:**
 
 ```json
 {
-  "id": 1,
-  "customerName": "Nguyen Van A",
-  "customerEmail": "a@example.com",
-  "totalAmount": 3600000.00,
-  "status": "pending",
-  "items": [
-    {
-      "id": 1,
-      "orderId": 1,
-      "productId": 2,
-      "productName": "Nuoc hoa",
-      "quantity": 2,
-      "unitPrice": 1800000.00,
-      "totalPrice": 3600000.00
-    }
-  ]
+  "orderId": 1
 }
 ```
 
-Đơn giá và tổng tiền được xác định từ dữ liệu sản phẩm. ID và thời gian tạo phụ thuộc dữ liệu thực tế.
+Reporting Service sẽ tự lấy `costPrice` của sản phẩm từ Product Service nếu không truyền giá vốn thủ công.
 
-## 8. Kiểm thử bằng Postman
+`orderId` phải là mã đơn hàng đã completed và chưa được tạo báo cáo trước đó.
 
-Sử dụng Postman Collection để kiểm thử tích hợp các service BTH2, BTH3 và BTH4.
+### 7.6. Công thức thống kê
 
-Các nhóm kiểm thử bao gồm:
+```text
+Số lượng bán = Tổng số lượng sản phẩm trong đơn hoàn thành
 
-- Đăng nhập và cấp JWT.
-- Xác thực JWT hợp lệ, thiếu hoặc không hợp lệ.
-- Lấy danh sách sản phẩm.
-- Tạo và xem đơn hàng.
-- CRUD chi tiết đơn hàng.
-- Kiểm tra tồn kho khi đặt hàng.
-- Xử lý dữ liệu không hợp lệ và tài nguyên không tồn tại.
-- Cập nhật trạng thái và xóa đơn hàng.
+Doanh thu = Tổng thành tiền các mặt hàng
 
-**Kết quả kiểm thử thực tế ngày 16/11/2026:**
+Chi phí giá vốn = Số lượng bán × Giá vốn một sản phẩm
 
-| Chỉ số | Kết quả |
+Lợi nhuận gộp = Doanh thu - Chi phí giá vốn
+```
+
+Ví dụ với nước hoa:
+
+| Chỉ tiêu | Giá trị |
+|---|---:|
+| Giá bán | 1.800.000đ |
+| Giá vốn | 140.000đ |
+| Số lượng bán | 1 |
+| Doanh thu | 1.800.000đ |
+| Chi phí | 140.000đ |
+| Lợi nhuận gộp | 1.660.000đ |
+
+Các số liệu trên là dữ liệu minh họa từ bài kiểm thử.
+
+### 7.7. Cấu trúc ReportDB
+
+**Bảng `orders_reports`**
+
+| Cột | Chức năng |
 |---|---|
-| Tổng assertions | 37 |
-| Passed | 37 |
+| id | Mã báo cáo |
+| order_id | Mã đơn hàng |
+| total_revenue | Tổng doanh thu |
+| total_cost | Tổng chi phí giá vốn |
+| total_profit | Tổng lợi nhuận gộp |
+| created_at | Ngày lập báo cáo |
+
+**Bảng `product_reports`**
+
+| Cột | Chức năng |
+|---|---|
+| id | Mã báo cáo sản phẩm |
+| order_report_id | Mã báo cáo đơn |
+| product_id | Mã sản phẩm |
+| product_name | Tên sản phẩm |
+| stock_quantity | Số lượng tồn kho tại thời điểm báo cáo |
+| total_sold | Số lượng đã bán trong đơn |
+| revenue | Doanh thu |
+| unit_cost | Giá vốn đơn vị |
+| cost | Tổng chi phí |
+| profit | Lợi nhuận gộp |
+
+**Lưu ý:** Báo cáo hiện ghi nhận số liệu tại thời điểm lập báo cáo. Không tự động tính lại lịch sử khi giá sản phẩm thay đổi.
+
+## 8. Cấu hình và chạy hệ thống
+
+### 8.1. Yêu cầu môi trường
+
+- JDK 21
+- Maven
+- Spring Tool Suite / Eclipse
+- Microsoft SQL Server
+- SQL Server Management Studio
+- Postman
+
+### 8.2. Chuẩn bị database
+
+Cần tạo 4 database:
+
+```text
+BTH2_JWT
+ProductDB
+OrderDB
+ReportDB
+```
+
+Các file SQL:
+
+```text
+ProductManagement/database/ProductDB.sql
+
+OrderManagement/database/OrderDB.sql
+
+ReportingService/database/ReportDB.sql
+```
+
+Bảng `stock_movements` cần được tạo bổ sung trong ProductDB nếu chưa có:
+
+```sql
+USE ProductDB;
+GO
+
+IF OBJECT_ID('dbo.stock_movements', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.stock_movements (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        product_id INT NOT NULL,
+        quantity_change INT NOT NULL,
+        reference_code VARCHAR(100) NOT NULL,
+        created_at DATETIME2 NOT NULL
+            DEFAULT SYSUTCDATETIME(),
+
+        CONSTRAINT FK_stock_movements_products
+            FOREIGN KEY (product_id)
+            REFERENCES dbo.products(id),
+
+        CONSTRAINT CK_stock_movements_quantity
+            CHECK (quantity_change <> 0),
+
+        CONSTRAINT UQ_stock_movements_reference
+            UNIQUE (product_id, reference_code)
+    );
+END;
+GO
+```
+
+### 8.3. Biến môi trường
+
+**Product Service:**
+
+```properties
+PRODUCT_DB_USER=<sql_username>
+PRODUCT_DB_PASSWORD=<sql_password>
+PRODUCT_DB_URL=jdbc:sqlserver://localhost:1433;databaseName=ProductDB;encrypt=true;trustServerCertificate=true
+JWT_SECRET=<jwt_secret>
+```
+
+**Order Service:**
+
+```properties
+ORDER_DB_USER=<sql_username>
+ORDER_DB_PASSWORD=<sql_password>
+ORDER_DB_URL=jdbc:sqlserver://localhost:1433;databaseName=OrderDB;encrypt=true;trustServerCertificate=true
+JWT_SECRET=<jwt_secret>
+PRODUCT_SERVICE_URL=http://localhost:8081
+```
+
+**Reporting Service:**
+
+```properties
+REPORT_DB_USER=<sql_username>
+REPORT_DB_PASSWORD=<sql_password>
+REPORT_DB_URL=jdbc:sqlserver://localhost:1433;databaseName=ReportDB;encrypt=true;trustServerCertificate=true
+JWT_SECRET=<jwt_secret>
+PRODUCT_SERVICE_URL=http://localhost:8081
+ORDER_SERVICE_URL=http://localhost:8082
+```
+
+Authentication Service cần được cấu hình theo file `application.properties` tương ứng trong BTH2.
+
+Không đưa JWT secret hoặc mật khẩu database thực tế lên GitHub.
+
+### 8.4. Khởi động dịch vụ
+
+Chạy lần lượt trong STS:
+
+1. Authentication Service – port 8080.
+2. Product Management Service – port 8081.
+3. Order Management Service – port 8082.
+4. Reporting Service – port 8083.
+
+Đảm bảo cả 4 service đang hoạt động trước khi chạy kiểm thử tích hợp.
+
+## 9. Kiểm thử tích hợp bằng Postman
+
+### 9.1. Collection
+
+Sử dụng Collection:
+
+`postman/SOA BTH - Integration Tests FINAL.postman_collection.json`
+
+Environment:
+
+`postman/SOA BTH Local.postman_environment.json`
+
+Các nhóm kiểm thử gồm:
+
+- JWT Authentication.
+- Product Management.
+- GET Orders và xác thực.
+- Tạo đơn hàng pending.
+- CRUD Order Items.
+- Kiểm thử lỗi nghiệp vụ.
+- Cập nhật trạng thái completed.
+- Xóa đơn pending và hoàn kho.
+- Hủy đơn pending và hoàn kho.
+- Reporting Service.
+- Thao tác thủ công kiểm tra tồn kho.
+
+### 9.2. Cách chạy
+
+1. Import Collection và Environment.
+2. Chọn Environment `SOA BTH Local`.
+3. Cấu hình tài khoản đăng nhập local.
+4. Khởi động cả bốn service.
+5. Mở Collection Runner.
+6. Chạy folder 01–10 theo đúng thứ tự.
+7. Bỏ chọn folder thao tác thủ công.
+8. Chọn `Iterations = 1`.
+9. Nhấn Run và xem kết quả.
+
+### 9.3. Kết quả kiểm thử
+
+**Ngày kiểm thử: 20/11/2026**
+
+| Chỉ tiêu | Kết quả |
+|---|---:|
+| Tổng assertions | 73 |
+| Passed | 73 |
 | Failed | 0 |
 | Errors | 0 |
-| Thời gian chạy | 5,199 giây |
-| Response trung bình | 148 ms |
+| Skipped | 0 |
+| Tỷ lệ Pass | 100% |
+| Iterations | 1 |
+| Thời gian chạy | 6,642 giây |
 
-Bộ kiểm thử Postman được lưu trong thư mục `postman/`.
+Kết quả cho thấy các test case trong Postman Collection Runner đều Pass trên môi trường local.
 
-Các giá trị JWT và mật khẩu phải được nhập riêng trong môi trường kiểm thử, không lưu thông tin bí mật thật lên GitHub.
+Việc đạt 73/73 assertions không đồng nghĩa hệ thống đã được kiểm thử đầy đủ về tải lớn, xử lý lỗi mạng và nhiều giao dịch đồng thời.
 
-## 9. Kết quả thực hành
+## 10. Kết quả đạt được
 
-- Xây dựng ba service chạy độc lập trên các cổng khác nhau.
-- Tách cơ sở dữ liệu cho từng service theo nguyên tắc SOA.
-- Hoàn thành RESTful API quản lý sản phẩm.
-- Hoàn thành 10 RESTful API quản lý đơn hàng và chi tiết đơn hàng.
-- Tích hợp xác thực JWT giữa các service.
-- Kiểm tra tồn kho thông qua REST API của Product Service.
-- Lưu và truy vấn thành công dữ liệu `orders`, `order_items` trong SQL Server.
-- Kiểm thử tích hợp bằng Postman đạt 37/37 assertions.
+- Xây dựng các dịch vụ hoạt động độc lập.
+- Sử dụng database riêng cho từng service.
+- Giao tiếp giữa các service thông qua REST API.
+- Triển khai xác thực JWT.
+- Hoàn thành CRUD Product Management.
+- Bổ sung quản lý giá vốn sản phẩm.
+- Tự động trừ và hoàn tồn kho khi thay đổi đơn hàng.
+- Ghi lịch sử thay đổi tồn kho.
+- Hoàn thành CRUD Orders và Order Items.
+- Xây dựng Reporting Service độc lập.
+- Thống kê hàng tồn, hàng bán, doanh thu, chi phí giá vốn và lợi nhuận gộp theo các báo cáo được lập.
+- Kiểm thử tích hợp thành công 73/73 assertions bằng Postman.
 
-## 10. Hướng phát triển
+## 11. Hạn chế và hướng phát triển
 
-- Triển khai cơ chế trừ và hoàn tồn kho an toàn.
-- Xử lý giao dịch phân tán giữa Order Service và Product Service.
-- Bổ sung chức năng thanh toán.
-- Tích hợp API Gateway.
-- Bổ sung unit test và integration test tự động trong Maven.
+- Hoàn thiện cơ chế xử lý giao dịch phân tán giữa Product và Order Service.
+- Bổ sung Saga Pattern hoặc Transactional Outbox.
+- Cải thiện tính idempotent khi retry request.
+- Kiểm thử nhiều yêu cầu đặt hàng đồng thời.
+- Xử lý mất kết nối hoặc service ngừng hoạt động giữa giao dịch.
+- Phân quyền cho thao tác cập nhật tồn kho.
+- Ghi nhận giá vốn tại thời điểm bán để báo cáo lịch sử chính xác hơn.
+- Bổ sung unit test và integration test chạy tự động bằng Maven.
+- Triển khai CI/CD và API Gateway.
+- Mở rộng thanh toán và thống kê chi phí vận hành.
 
 ---
 
 **Môn học:** Kiến trúc hướng dịch vụ (SOA)
 
-**Công nghệ:** Java Spring Boot, SQL Server, RESTful API, JWT, Maven, Postman.
+**Công nghệ:** Java 21, Spring Boot, SQL Server, RESTful API, JWT, Maven, Postman.
