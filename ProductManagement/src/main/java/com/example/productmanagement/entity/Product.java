@@ -17,6 +17,8 @@ public class Product {
 	private String description;
 	@Column(name = "price", nullable = false, precision = 10, scale = 2)
 	private BigDecimal price;
+	@Column(name = "cost_price", precision = 10, scale = 2)
+	private BigDecimal costPrice;
 	@Column(name = "quantity", nullable = false)
 	private Integer quantity;
 	@Column(name = "created_at", nullable = false, updatable = false)
@@ -77,5 +79,13 @@ public class Product {
 
 	public LocalDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+	
+	public BigDecimal getCostPrice() {
+	    return costPrice;
+	}
+
+	public void setCostPrice(BigDecimal costPrice) {
+	    this.costPrice = costPrice;
 	}
 }

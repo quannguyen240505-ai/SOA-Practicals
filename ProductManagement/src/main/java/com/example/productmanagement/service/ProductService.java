@@ -1,4 +1,4 @@
-package com.example.productmanagement.service;
+	package com.example.productmanagement.service;
 
 import com.example.productmanagement.dto.*;
 import com.example.productmanagement.entity.Product;
@@ -53,9 +53,14 @@ public class ProductService {
 	}
 
 	private void apply(Product p, ProductRequest r) {
-		p.setName(r.name().trim());
-		p.setDescription(r.description());
-		p.setPrice(r.price());
-		p.setQuantity(r.quantity());
+	    p.setName(r.name().trim());
+	    p.setDescription(r.description());
+	    p.setPrice(r.price());
+	    p.setQuantity(r.quantity());
+
+	    // Nếu không gửi costPrice, giữ giá vốn hiện có.
+	    if (r.costPrice() != null) {
+	        p.setCostPrice(r.costPrice());
+	    }
 	}
 }

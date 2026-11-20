@@ -35,13 +35,16 @@ public class OrderController {
 	}
 
 	@PutMapping("/{id}")
-	public OrderView status(@PathVariable Integer id, @Valid @RequestBody ChangeStatus req) {
-		return service.changeStatus(id, req);
+	public OrderView status(@PathVariable Integer id, @Valid @RequestBody ChangeStatus req, HttpServletRequest http) {
+
+		return service.changeStatus(id, req, http);
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable Integer id) {
-		service.deleteOrder(id);
+	public ResponseEntity<Void> delete(@PathVariable Integer id, HttpServletRequest http) {
+
+		service.deleteOrder(id, http);
 		return ResponseEntity.noContent().build();
 	}
+
 }

@@ -1,0 +1,2238 @@
+{
+  "info": {
+    "_postman_id": "cf57333c-89dd-441a-adc3-08f1c7f43a03",
+    "name": "SOA BTH - Integration Tests FINAL",
+    "description": "Bộ test BTH2–BTH5 đã sắp xếp theo phụ thuộc. Chạy folder 01–10 theo thứ tự trên dữ liệu DEMO; bỏ folder 11 thao tác thủ công. BTH2:8080, BTH3:8081, BTH4:8082, BTH5:8083. Chọn Environment SOA BTH Local (loginUserName/loginPassword), không export token thật. BTH4 tự trừ/hoàn kho. Không chạy trên production; kiểm tra dữ liệu cũ và đảm bảo ít nhất 8 tồn kho ở một sản phẩm. Các biến ID lưu vào Environment. Nếu report đã tồn tại trên cùng order, cần dùng đơn completed mới.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58441890",
+    "_collection_link": "https://go.postman.co/collection/58441890-cf57333c-89dd-441a-adc3-08f1c7f43a03?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01 | BTH2 - Xác thực JWT",
+      "item": [
+        {
+          "name": "01 Login và lưu JWT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const password = pm.environment.get('loginPassword');\nif (!password) throw new Error('Hãy đặt loginPassword trong Postman Environment trước khi chạy');\n// BTH2 nhận password được Base64 mã hóa trong JSON.\nconst encoded = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(password));\npm.variables.set('loginPasswordBase64', encoded);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "\npm.test(\"HTTP 200 - Đăng nhập thành công\", function () {\n    pm.response.to.have.status(200);\n});\n\nif (pm.response.code === 200) {\n    const data = pm.response.json();\n\n    pm.test(\"Response chứa JWT\", function () {\n        pm.expect(data.token).to.be.a(\"string\").and.not.empty;\n    });\n\n    if (data.token) {\n        pm.environment.set(\"jwtToken\", data.token);\n\n        pm.test(\"JWT đã lưu vào Environment\", function () {\n            pm.expect(pm.environment.get(\"jwtToken\"))\n                .to.eql(data.token);\n        });\n    }\n}\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userName\": \"{{loginUserName}}\",\n  \"password\": \"{{loginPasswordBase64}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{authBaseUrl}}/login",
+              "host": [
+                "{{authBaseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 Kiểm tra JWT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Token hợp lệ', () => pm.expect(pm.response.json().valid).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{authBaseUrl}}/auth",
+              "host": [
+                "{{authBaseUrl}}"
+              ],
+              "path": [
+                "auth"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "02 | BTH3 - Chọn sản phẩm",
+      "item": [
+        {
+          "name": "01 GET sản phẩm, chọn productId và giá vốn",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200 - Lấy sản phẩm\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test(\"Response là danh sách\", () => pm.expect(data).to.be.an(\"array\"));",
+                  "  const selected = data.find(x => Number(x.id) === 2 && Number(x.quantity) >= 8) || data.find(x => Number(x.quantity) >= 8);",
+                  "  pm.test(\"Có sản phẩm đủ hàng chạy thử\", () => pm.expect(selected).to.exist);",
+                  "  if (selected) {",
+                  "    pm.environment.set(\"productId\", String(selected.id));",
+                  "    pm.environment.set(\"productPrice\", String(selected.price));",
+                  "    pm.environment.set(\"stock\", String(selected.quantity));",
+                  "    pm.environment.set(\"insufficientQty\", String(Number(selected.quantity) + 10000));",
+                  "    if (selected.costPrice != null) pm.environment.set(\"expectedCostPrice\", String(selected.costPrice));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{productBaseUrl}}/products",
+              "host": [
+                "{{productBaseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "03 | BTH4 - GET & Bảo mật",
+      "item": [
+        {
+          "name": "04 Không token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "05 Lấy tất cả đơn hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Kết quả là mảng', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "06 Đơn hàng không tồn tại → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/2147483647",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "2147483647"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "04 | BTH4 - Tạo đơn pending",
+      "item": [
+        {
+          "name": "01 POST tạo đơn pending (tự lưu orderId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "\npm.test(\"HTTP 201 - Tạo đơn hàng thành công\", function () {\n    pm.response.to.have.status(201);\n});\n\nif (pm.response.code === 201) {\n    const order = pm.response.json();\n\n    // Test 1: Kiem tra thong tin don hang\n    pm.test(\"Đơn hàng có id, pending, items\", function () {\n        pm.expect(order.id).to.be.a(\"number\");\n        pm.expect(order.status).to.eql(\"pending\");\n        pm.expect(order.items).to.be.an(\"array\").with.lengthOf(1);\n    });\n\n    // Test 2: Kiem tra tong tien\n    pm.test(\"Tổng tiền đúng\", function () {\n        const price = Number(pm.variables.get(\"productPrice\"));\n        const quantity = 1;\n        const expectedTotal = price * quantity;\n\n        pm.expect(Number(order.totalAmount))\n            .to.eql(expectedTotal);\n    });\n\n    // Tu dong luu ID cua don hang moi nhat\n    pm.environment.set(\"orderId\", String(order.id));\n\n    // Luu ID chi tiet don hang cho cac test BTH4\n    if (order.items.length > 0) {\n        pm.environment.set(\n            \"baseItemId\",\n            String(order.items[0].id)\n        );\n    }\n\n    // Hien thi trong Postman Console\n    console.log(\"Đã lưu orderId mới:\", order.id);\n    console.log(\"Đã lưu baseItemId:\",\n        pm.environment.get(\"baseItemId\"));\n}\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Nguyen Minh Quan\",\n  \"customerEmail\": \"a@example.com\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Dùng 2 sản phẩm, tự lấy ID sản phẩm từ request 03."
+          },
+          "response": []
+        },
+        {
+          "name": "02 GET đơn mới tạo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200 - Lấy đơn theo ID\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const o = pm.response.json();",
+                  "  pm.test(\"Đúng đơn đang kiểm thử\", () => pm.expect(String(o.id)).to.eql(pm.variables.get(\"orderId\")));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{orderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "05 | BTH4 - CRUD Order Items",
+      "item": [
+        {
+          "name": "09 GET tất cả order_items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Mảng mặt hàng', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10 GET một mặt hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200 - Lấy item\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.test(\"Item đúng đơn hàng\", () => {",
+                  "  pm.expect(String(pm.response.json().orderId)).to.eql(pm.variables.get(\"orderId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items/{{baseItemId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items",
+                "{{baseItemId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11 POST thêm mặt hàng, lưu addedItemId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "\npm.test(\"HTTP 201 - Thêm sản phẩm thành công\", () => {\n    pm.response.to.have.status(201);\n});\n\nif (pm.response.code === 201) {\n    const item = pm.response.json();\n\n    pm.test(\"Item thuộc đúng đơn hàng\", () => {\n        pm.expect(Number(item.orderId)).to.eql(\n            Number(pm.variables.get(\"orderId\"))\n        );\n    });\n\n    pm.test(\"Số lượng thêm chính xác\", () => {\n        pm.expect(item.quantity).to.eql(2);\n    });\n\n    pm.test(\"Tổng tiền item chính xác\", () => {\n        pm.expect(Number(item.totalPrice)).to.be.closeTo(\n            Number(item.unitPrice) * item.quantity,\n            0.01\n        );\n    });\n\n    pm.environment.set(\"addedItemId\", String(item.id));\n\n    console.log(\"Đã lưu addedItemId:\", item.id);\n}\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"productId\": {{productId}},\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "12 PUT sửa mặt hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "\npm.test(\"HTTP 200 - Cập nhật item thành công\", () => {\n    pm.response.to.have.status(200);\n});\n\nif (pm.response.code === 200) {\n    const item = pm.response.json();\n\n    pm.test(\"Số lượng cập nhật đúng\", () => {\n        pm.expect(item.quantity).to.eql(3);\n    });\n\n    pm.test(\"Tổng tiền item đúng\", () => {\n        const expected =\n            Number(item.unitPrice) * Number(item.quantity);\n\n        pm.expect(Number(item.totalPrice))\n            .to.be.closeTo(expected, 0.01);\n    });\n\n    pm.test(\"Đúng item cần cập nhật\", () => {\n        pm.expect(Number(item.id)).to.eql(\n            Number(pm.variables.get(\"addedItemId\"))\n        );\n    });\n}\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": {{productId}},\n  \"quantity\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items/{{addedItemId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items",
+                "{{addedItemId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13 DELETE mặt hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204 - Xóa item thành công\", () => {\r\n    pm.response.to.have.status(204);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items/{{addedItemId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items",
+                "{{addedItemId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14 GET mặt hàng đã xóa → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items/{{addedItemId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items",
+                "{{addedItemId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "06 | BTH4 - Kiểm thử lỗi nghiệp vụ",
+      "item": [
+        {
+          "name": "15 Đặt quá số lượng tồn kho → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Stock Test\",\n  \"customerEmail\": \"stock@example.com\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": {{insufficientQty}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16 Sản phẩm không tồn tại → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Invalid Product\",\n  \"customerEmail\": \"invalid@example.com\",\n  \"items\": [\n    {\n      \"productId\": 2147483647,\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17 Thiếu email hợp lệ → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Invalid Email\",\n  \"customerEmail\": \"not-an-email\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "18 Trạng thái không hợp lệ → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipping\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{orderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "07 | BTH4 - Chuyển completed",
+      "item": [
+        {
+          "name": "19 Chuyển completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200 - Chuyển completed\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const o = pm.response.json();",
+                  "  pm.test(\"Trạng thái completed\", () => pm.expect(o.status).to.eql(\"completed\"));",
+                  "  pm.environment.set(\"completedOrderId\", String(o.id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{orderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "20 Không thể thêm item vào đơn completed → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"productId\": {{productId}},\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/order_items",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "order_items"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "21 Không thể xóa đơn completed → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{completedOrderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{completedOrderId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "08 | BTH4 - Xóa đơn pending (riêng)",
+      "item": [
+        {
+          "name": "22 Tạo đơn để thử DELETE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 - Tạo đơn để xóa\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.environment.set(\"deleteOrderId\", String(pm.response.json().id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Delete Test\",\n  \"customerEmail\": \"delete@example.com\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "23 DELETE đơn pending",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{deleteOrderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{deleteOrderId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "24 GET đơn đã xóa → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{deleteOrderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{deleteOrderId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "09 | BTH4 - Hủy đơn pending (riêng)",
+      "item": [
+        {
+          "name": "01 Tạo đơn riêng để thử CANCEL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 - Tạo đơn để hủy\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) pm.environment.set(\"cancelOrderId\", String(pm.response.json().id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerName\": \"Delete Test\",\n  \"customerEmail\": \"delete@example.com\",\n  \"items\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02 PUT hủy đơn pending và hoàn kho",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200 - Hủy đơn\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const o=pm.response.json();",
+                  " pm.test(\"Đúng đơn và trạng thái\", () => {",
+                  "  pm.expect(String(o.id)).to.eql(pm.variables.get(\"cancelOrderId\"));",
+                  "  pm.expect(o.status).to.eql(\"cancelled\");",
+                  " });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"status\": \"cancelled\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{cancelOrderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{cancelOrderId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03 GET xác nhận đơn cancelled",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) pm.test(\"Đơn đã hủy\", () => pm.expect(pm.response.json().status).to.eql(\"cancelled\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orderBaseUrl}}/orders/{{cancelOrderId}}",
+              "host": [
+                "{{orderBaseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{cancelOrderId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "10 | BTH5 - Báo cáo và kiểm thử",
+      "item": [
+        {
+          "name": "01 GET orders reports (JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "pm.test(\"Array\",()=>pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "02 GET product reports",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));",
+                  "pm.test(\"Array\",()=>pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/products",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "03 JWT missing → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\",()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "04 GET order report missing → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders/99999999",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders",
+                "99999999"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "05 GET product report missing → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/products/99999999",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products",
+                "99999999"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "06 POST báo cáo đơn completed (lưu 2 report ID)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 - Tạo báo cáo\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const r = pm.response.json();",
+                  "  pm.test(\"Có ID báo cáo\", () => pm.expect(r.id).to.be.a(\"number\"));",
+                  "  pm.test(\"Có ít nhất một báo cáo sản phẩm\", () => pm.expect(r.products).to.be.an(\"array\").that.is.not.empty);",
+                  "  pm.test(\"Tổng lợi nhuận = doanh thu - chi phí\", () => pm.expect(Number(r.totalProfit)).to.be.closeTo(Number(r.totalRevenue) - Number(r.totalCost), 0.01));",
+                  "  if (Array.isArray(r.products)) {",
+                  "    pm.test(\"Giá vốn và chi phí từng dòng hợp lệ\", () => {",
+                  "      for (const p of r.products) {",
+                  "        pm.expect(Number(p.cost)).to.be.closeTo(Number(p.unitCost) * Number(p.totalSold), 0.01);",
+                  "        if (Number(p.productId) === Number(pm.variables.get(\"productId\")) && pm.variables.get(\"expectedCostPrice\") !== undefined) {",
+                  "          pm.expect(Number(p.unitCost)).to.be.closeTo(Number(pm.variables.get(\"expectedCostPrice\")), 0.01);",
+                  "        }",
+                  "      }",
+                  "    });",
+                  "  }",
+                  "  pm.environment.set(\"orderReportId\", String(r.id));",
+                  "  if (r.products?.length) pm.environment.set(\"productReportId\", String(r.products[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{completedOrderId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "07 GET created order report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders/{{orderReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders",
+                "{{orderReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "08 GET created product report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\",()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/products/{{productReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products",
+                "{{productReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "09 Duplicate order report → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{completedOrderId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "10 POST duplicate product report → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\",()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderReportId\": {{orderReportId}},\n  \"productId\": {{productId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{reportUrl}}/reports/products",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "11 DELETE product report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\",()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/products/{{productReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products",
+                "{{productReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "12 Verify product deleted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/products/{{productReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products",
+                "{{productReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "13 POST recreate product report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\",()=>pm.response.to.have.status(201));",
+                  "if(pm.response.code===201)pm.environment.set(\"productReportId\",pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderReportId\": {{orderReportId}},\n  \"productId\": {{productId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{reportUrl}}/reports/products",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "products"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "14 DELETE order report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\",()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders/{{orderReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders",
+                "{{orderReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        },
+        {
+          "name": "15 Verify order report deleted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\",()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reportUrl}}/reports/orders/{{orderReportId}}",
+              "host": [
+                "{{reportUrl}}"
+              ],
+              "path": [
+                "reports",
+                "orders",
+                "{{orderReportId}}"
+              ]
+            },
+            "description": "BTH5 reporting"
+          },
+          "response": []
+        }
+      ],
+      "description": "Luồng tự động"
+    },
+    {
+      "name": "11 | Thao tác thủ công - KHÔNG chạy Runner",
+      "item": [
+        {
+          "name": "Tạo sản phẩm mới (thủ công, không chạy Runner)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201 - Tạo sản phẩm thành công\", () => {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const product = pm.response.json();",
+                  "",
+                  "pm.test(\"Sản phẩm có ID hợp lệ\", () => {",
+                  "    pm.expect(product.id).to.be.a(\"number\");",
+                  "});",
+                  "",
+                  "pm.test(\"Thông tin sản phẩm chính xác\", () => {",
+                  "    pm.expect(product.name).to.eql(\"San pham test SOA\");",
+                  "    pm.expect(Number(product.price)).to.eql(120000);",
+                  "    pm.expect(product.quantity).to.eql(30);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201 && product.id) {",
+                  "    pm.environment.set(\"productId\", String(product.id));",
+                  "    pm.environment.set(\"productPrice\", String(product.price));",
+                  "    pm.environment.set(\"stock\", String(product.quantity));",
+                  "    pm.environment.set(",
+                  "        \"insufficientQty\",",
+                  "        String(Number(product.quantity) + 1)",
+                  "    );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"San pham test SOA\",\n  \"description\": \"Du lieu kiem thu tu dong\",\n  \"price\": 120000,\n  \"costPrice\": 80000,\n  \"quantity\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{productBaseUrl}}/products",
+              "host": [
+                "{{productBaseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Điều chỉnh kho thủ công (không chạy Runner)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\nif (pm.response.code === 200) {\r\n    const result = pm.response.json();\r\n\r\n    pm.test(\"Tồn kho cập nhật chính xác\", () => {\r\n        pm.expect(result.currentQuantity).to.eql(\r\n            result.previousQuantity + result.quantityChange\r\n        );\r\n\r\n        pm.expect(result.currentQuantity)\r\n            .to.be.at.least(0);\r\n    });\r\n}"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"stockRef\", \"MANUAL-STOCK-\" + pm.variables.replaceIn(\"{{$guid}}\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwtToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": -1,\n  \"referenceCode\": \"{{stockRef}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{productBaseUrl}}/products/2/stock-adjustments",
+              "host": [
+                "{{productBaseUrl}}"
+              ],
+              "path": [
+                "products",
+                "2",
+                "stock-adjustments"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Chỉ chạy thủ công từng request, không chạy toàn bộ folder."
+    }
+  ],
+  "variable": [
+    {
+      "key": "authBaseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "productBaseUrl",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "orderBaseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "jwtToken",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productPrice",
+      "value": ""
+    },
+    {
+      "key": "stock",
+      "value": ""
+    },
+    {
+      "key": "insufficientQty",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "baseItemId",
+      "value": ""
+    },
+    {
+      "key": "addedItemId",
+      "value": ""
+    },
+    {
+      "key": "deleteOrderId",
+      "value": ""
+    },
+    {
+      "key": "completedOrderId",
+      "value": ""
+    },
+    {
+      "key": "orderReportId",
+      "value": ""
+    },
+    {
+      "key": "productReportId",
+      "value": ""
+    },
+    {
+      "key": "expectedCostPrice",
+      "value": ""
+    },
+    {
+      "key": "cancelOrderId",
+      "value": ""
+    }
+  ]
+}

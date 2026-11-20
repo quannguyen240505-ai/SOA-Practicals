@@ -40,8 +40,9 @@ public class OrderItemController {
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable Integer id) {
-		service.deleteItem(id);
+	public ResponseEntity<Void> delete(@PathVariable Integer id, HttpServletRequest http) {
+
+		service.deleteItem(id, http);
 		return ResponseEntity.noContent().build();
 	}
 }
